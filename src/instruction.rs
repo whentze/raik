@@ -67,15 +67,17 @@ impl Instruction {
     }
     pub fn imm_s(&self) -> i32 {
         sign_extend(
-            ((self.inner >> 20) & 0b111111100000) | ((self.inner >> 7) & 0b11111),
+            ((self.inner >> 20) & 0b111111100000) | 
+            ((self.inner >> 7)  & 0b000000011111),
             12,
         )
     }
     pub fn imm_b(&self) -> i32 {
         sign_extend(
-            ((self.inner >> 19) & 0b1000000000000) | ((self.inner << 4) & 0b0100000000000) |
-                ((self.inner >> 20) & 0b0011111100000) |
-                ((self.inner >> 7) & 0b0000000011110),
+            ((self.inner >> 19) & 0b1000000000000) |
+            ((self.inner << 4)  & 0b0100000000000) |
+            ((self.inner >> 20) & 0b0011111100000) |
+            ((self.inner >> 7)  & 0b0000000011110),
             13,
         )
     }
@@ -85,9 +87,9 @@ impl Instruction {
     pub fn imm_j(&self) -> i32 {
         sign_extend(
             ((self.inner >> 11) & 0b100000000000000000000) |
-                ((self.inner >> 0) & 0b011111111000000000000) |
-                ((self.inner >> 9) & 0b000000000100000000000) |
-                ((self.inner >> 20) & 0b000000000011111111111),
+            ((self.inner >> 0)  & 0b011111111000000000000) |
+            ((self.inner >> 9)  & 0b000000000100000000000) |
+            ((self.inner >> 20) & 0b000000000011111111111),
             21,
         )
     }
