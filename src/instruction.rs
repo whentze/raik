@@ -42,6 +42,8 @@ enum EncodingType {
     B,
     U,
     J,
+    R4,
+    None,
 }
 
 pub struct Instruction {
@@ -56,11 +58,17 @@ impl Instruction {
     pub fn funct3(&self) -> u8 {
         ((self.inner >> 12) & 0b11111) as u8
     }
+    pub fn funct2(&self) -> u8 {
+        ((self.inner >> 25) & 0b11) as u8
+    }
     pub fn rs1(&self) -> u8 {
         ((self.inner >> 15) & 0b11111) as u8
     }
     pub fn rs2(&self) -> u8 {
         ((self.inner >> 20) & 0b11111) as u8
+    }
+    pub fn rs3(&self) -> u8 {
+        ((self.inner >> 27) & 0b11111) as u8
     }
     pub fn imm_i(&self) -> i32 {
         sign_extend((self.inner >> 20) as i32 & 0b111111111111, 12)
@@ -206,16 +214,16 @@ impl Instruction {
     }
     fn encoding_type(&self) -> EncodingType {
         use self::MajorOpCode::*;
+        use self::EncodingType::*;
         match self.major_opcode() {
-            OP_IMM => EncodingType::I,
-            OP => EncodingType::R,
-            LOAD => EncodingType::I,
-            STORE => EncodingType::S,
-            JALR => EncodingType::I,
-            LUI => EncodingType::U,
-            JAL => EncodingType::J,
-            BRANCH => EncodingType::B,
-            _ => panic!("I haven't added this yet!"),
+            AMO | OP | OP_32 | OP_FP => R,
+            LOAD | LOAD_FP | MISC_MEM | OP_IMM | OP_IMM_32 | JALR | SYSTEM => I,
+            STORE | STORE_FP => S,
+            BRANCH => B,
+            AUIPC | LUI => U,
+            JAL => J,
+            MADD | MSUB | NMSUB | NMADD => R4,
+            RESERVED | CUSTOM | RV128 | LONG => None,
         }
     }
 }
@@ -244,7 +252,7 @@ impl fmt::Display for Instruction {
                     self.rd(),
                     self.rs1(),
                     self.rs2()
-                )?;
+                )
             }
             EncodingType::I => {
                 write!(
@@ -254,7 +262,7 @@ impl fmt::Display for Instruction {
                     self.rd(),
                     self.rs1(),
                     self.imm_i()
-                )?;
+                )
             }
             EncodingType::S => {
                 write!(
@@ -264,7 +272,7 @@ impl fmt::Display for Instruction {
                     self.rs1(),
                     self.rs2(),
                     self.imm_s()
-                )?;
+                )
             }
             EncodingType::B => {
                 write!(
@@ -274,7 +282,7 @@ impl fmt::Display for Instruction {
                     self.rs1(),
                     self.rs2(),
                     self.imm_b()
-                )?;
+                )
             }
             EncodingType::U => {
                 write!(
@@ -283,7 +291,7 @@ impl fmt::Display for Instruction {
                     self.opcode,
                     self.rd(),
                     self.imm_u()
-                )?;
+                )
             }
             EncodingType::J => {
                 write!(
@@ -292,9 +300,24 @@ impl fmt::Display for Instruction {
                     self.opcode,
                     self.rd(),
                     self.imm_j()
-                )?;
+                )
             }
-        };
+            EncodingType::R4 => {
+                write!(
+                    f,
+                    "{:?} x{:02} x{:02} x{:02}, x{:02}, {:02b}",
+                    self.opcode,
+                    self.rd(),
+                    self.rs1(),
+                    self.rs2(),
+                    self.rs3(),
+                    self.funct2(),
+                )
+            }
+            EncodingType::None => {
+                Err(fmt::Error{})
+            }
+        }?;
         Ok(())
     }
 }
