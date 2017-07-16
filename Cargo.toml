@@ -1,0 +1,10 @@
+[package]
+name = "raik"
+version = "0.1.0"
+authors = ["muvlon <muvlon@hentzes.de>"]
+
+[dependencies]
+goblin = "~0.0.10"
+scroll = "~0.5"
+clap   = "~2.25.0"
+byteorder = "~1.1"
