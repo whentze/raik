@@ -28,7 +28,12 @@ pub enum OpCode {
     SW,
     JALR,
     JAL,
+    BEQ,
     BNE,
+    BLT,
+    BLTU,
+    BGE,
+    BGEU,
 
     //M extension
     MUL,
@@ -109,6 +114,7 @@ impl Instruction {
     }
     pub fn execute(&self, state: &mut ProgramState) {
         use self::OpCode::*;
+        let mut next_pc = state.regs.pc + 4;
         match self.opcode {
             ADDI => {
                 let res = self.imm_i() + state.regs.read_x(self.rs1());
@@ -156,6 +162,19 @@ impl Instruction {
                 let res = sign_extend(res, 32 - shamt);
                 state.regs.write_x(self.rd(), res);
             }
+            SB => {
+                let addr = state.regs.read_x(self.rs1()) + self.imm_s();
+                let val = state.regs.read_x(self.rs2()) as u8;
+                state.mem.data[addr as usize] = val;
+            }
+            SH => {
+                let addr = state.regs.read_x(self.rs1()) + self.imm_s();
+                let val = state.regs.read_x(self.rs2()) as i16;
+                LittleEndian::write_i16(
+                    &mut state.mem.data[addr as usize..(addr + 2) as usize],
+                    val,
+                );
+            }
             SW => {
                 let addr = state.regs.read_x(self.rs1()) + self.imm_s();
                 let val = state.regs.read_x(self.rs2());
@@ -163,6 +182,17 @@ impl Instruction {
                     &mut state.mem.data[addr as usize..(addr + 4) as usize],
                     val,
                 );
+            }
+            LB => {
+                let addr = state.regs.read_x(self.rs1()) + self.imm_i();
+                let val = state.mem.data[addr as usize] as i32;
+                state.regs.write_x(self.rd(), val);
+            }
+            LH => {
+                let addr = state.regs.read_x(self.rs1()) + self.imm_i();
+                let val =
+                    LittleEndian::read_i16(&state.mem.data[addr as usize..(addr + 2) as usize]) as i32;
+                state.regs.write_x(self.rd(), val);
             }
             LW => {
                 let addr = state.regs.read_x(self.rs1()) + self.imm_i();
@@ -179,6 +209,16 @@ impl Instruction {
                 let res = i32::wrapping_sub(self.imm_i(), state.regs.read_x(self.rs1()));
                 state.regs.write_x(self.rd(), res);
             }
+            AND => {
+                let res =
+                    state.regs.read_x(self.rs1()) & state.regs.read_x(self.rs2());
+                state.regs.write_x(self.rd(), res);
+            }
+            OR => {
+                let res =
+                    state.regs.read_x(self.rs1()) | state.regs.read_x(self.rs2());
+                state.regs.write_x(self.rd(), res);
+            }
             SLL => {
                 let res = self.imm_i() << state.regs.read_x(self.rs1());
                 state.regs.write_x(self.rd(), res);
@@ -193,21 +233,54 @@ impl Instruction {
                 let res = sign_extend(res, 32 - shamt);
                 state.regs.write_x(self.rd(), res);
             }
+            JAL => {
+                let target = state.regs.pc + (self.imm_j() & !0b1);
+                state.regs.write_x(self.rd(), next_pc);
+                next_pc = target;
+            }
             JALR => {
                 let target = state.regs.read_x(self.rs1()) + self.imm_i();
-                let target = (target >> 1) << 1;
-                state.regs.write_x(self.rd(), target + 4);
-                state.regs.pc = target;
+                let target = target & !0b1;
+                state.regs.write_x(self.rd(), next_pc);
+                next_pc = target;
+            }
+            BNE => {
+                if state.regs.read_x(self.rs1()) != state.regs.read_x(self.rs2()) {
+                    next_pc = state.regs.pc + (self.imm_b() & !0b1);
+                }
+            }
+            BEQ => {
+                if state.regs.read_x(self.rs1()) == state.regs.read_x(self.rs2()) {
+                    next_pc = state.regs.pc + (self.imm_b() & !0b1);
+                }
+            }
+            BLT => {
+                if state.regs.read_x(self.rs1()) < state.regs.read_x(self.rs2()) {
+                    next_pc = state.regs.pc + (self.imm_b() & !0b1);
+                }
+            }
+            BLTU => {
+                if (state.regs.read_x(self.rs1()) as u32) < (state.regs.read_x(self.rs2()) as u32) {
+                    next_pc = state.regs.pc + (self.imm_b() & !0b1);
+                }
+            }
+            BGE => {
+                if state.regs.read_x(self.rs1()) >= state.regs.read_x(self.rs2()) {
+                    next_pc = state.regs.pc + (self.imm_b() & !0b1);
+                }
+            }
+            BGEU => {
+                if (state.regs.read_x(self.rs1()) as u32) >= (state.regs.read_x(self.rs2()) as u32) {
+                    next_pc = state.regs.pc + (self.imm_b() & !0b1);
+                }
             }
             MUL => {
                 let res =
                     i32::wrapping_mul(state.regs.read_x(self.rs1()), state.regs.read_x(self.rs2()));
                 state.regs.write_x(self.rd(), res);
             }
-            _ => {
-                println!("Unimplemented instruction, skipping.");
-            }
         }
+        state.regs.pc = next_pc;
     }
     fn major_opcode(&self) -> MajorOpCode {
         MajorOpCode::decode(self.inner)
@@ -393,7 +466,6 @@ impl MajorOpCode {
         MAJOR_OPCODE_TABLE[bits as usize]
     }
 }
-
 pub fn decode(inst: i32) -> Instruction {
     let major_opcode = MajorOpCode::decode(inst);
     use self::MajorOpCode::*;
@@ -403,6 +475,7 @@ pub fn decode(inst: i32) -> Instruction {
         STORE => decode_store(inst),
         LOAD => decode_load(inst),
         JALR => decode_jalr(inst),
+        BRANCH => decode_branch(inst),
         RESERVED => panic!("Unsupported Major Opcode ( reserved )"),
         CUSTOM => panic!("Unsupported Major Opcode ( custom )"),
         RV128 => panic!("Unsupported Major Opcode ( custom/RV128 )"),
@@ -505,5 +578,19 @@ fn decode_jalr(inst: i32) -> OpCode {
     match func3 {
         0b000 => JALR,
         i @ _ => panic!("Unsupported instruction ( JALR-{:03b} )", i),
+    }
+}
+
+fn decode_branch(inst: i32) -> OpCode {
+    use self::OpCode::*;
+    let func3 = (inst >> 12) & 0b111;
+    match func3 {
+        0b000 => BEQ,
+        0b001 => BNE,
+        0b100 => BLT,
+        0b101 => BGE,
+        0b110 => BLTU,
+        0b111 => BGEU,
+        i @ _ => panic!("Unsupported instruction ( BRANCH-{:03b} )", i),
     }
 }

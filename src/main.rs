@@ -110,6 +110,5 @@ pub fn main() {
             println!("Program returned with value {}", state.regs.read_x(10));
             std::process::exit(1);
         }
-        state.regs.pc += 4;
     }
 }
