@@ -100,7 +100,7 @@ impl Instruction {
     pub fn imm_j(&self) -> i32 {
         sign_extend(
             ((self.inner >> 11) & 0b100000000000000000000) |
-            ((self.inner >> 0)  & 0b011111111000000000000) |
+            ((self.inner)       & 0b011111111000000000000) |
             ((self.inner >> 9)  & 0b000000000100000000000) |
             ((self.inner >> 20) & 0b000000000011111111111),
             21,
@@ -480,7 +480,7 @@ pub fn decode(inst: i32) -> Instruction {
         CUSTOM => panic!("Unsupported Major Opcode ( custom )"),
         RV128 => panic!("Unsupported Major Opcode ( custom/RV128 )"),
         LONG => panic!("Unsupported Instruction Length ( > 32b )"),
-        c @ _ => panic!("Unsupported Major Opcode ( {:?} )", c),
+        c  => panic!("Unsupported Major Opcode ( {:?} )", c),
     };
     Instruction::new(inst, opcode)
 }
@@ -495,7 +495,7 @@ fn decode_op(inst: i32) -> OpCode {
                 0b0000000 => ADD,
                 0b0000001 => MUL,
                 0b0100000 => SUB,
-                i @ _ => panic!("Unsupported instruction (OP-{:03b}-{:07b})", func3, i),
+                i => panic!("Unsupported instruction (OP-{:03b}-{:07b})", func3, i),
             }
         }
         0b101 => {
@@ -503,24 +503,24 @@ fn decode_op(inst: i32) -> OpCode {
             match func7 {
                 0b0000000 => SRL,
                 0b0100000 => SRA,
-                i @ _ => panic!("Unsupported instruction (OP-{:03b}-{:07b})", func3, i),
+                i => panic!("Unsupported instruction (OP-{:03b}-{:07b})", func3, i),
             }
         }
         0b110 => {
             let func7 = (inst >> 25) & 0b1111111;
             match func7 {
                 0b0000000 => OR,
-                i @ _ => panic!("Unsupported instruction (OP-{:03b}-{:07b})", func3, i),
+                i => panic!("Unsupported instruction (OP-{:03b}-{:07b})", func3, i),
             }
         }
         0b111 => {
             let func7 = (inst >> 25) & 0b1111111;
             match func7 {
                 0b0000000 => AND,
-                i @ _ => panic!("Unsupported instruction (OP-{:03b}-{:07b})", func3, i),
+                i => panic!("Unsupported instruction (OP-{:03b}-{:07b})", func3, i),
             }
         }
-        i @ _ => panic!("Unsupported instruction ( OP-{:03b} )", i),
+        i => panic!("Unsupported instruction ( OP-{:03b} )", i),
     }
 }
 
@@ -529,7 +529,7 @@ fn decode_store(inst: i32) -> OpCode {
     let func3 = (inst >> 12) & 0b111;
     match func3 {
         0b010 => SW,
-        i @ _ => panic!("Unsupported instruction ( STORE-{:03b} )", i),
+        i => panic!("Unsupported instruction ( STORE-{:03b} )", i),
     }
 }
 
@@ -540,7 +540,7 @@ fn decode_load(inst: i32) -> OpCode {
         0b000 => LB,
         0b001 => LH,
         0b010 => LW,
-        i @ _ => panic!("Unsupported instruction ( LOAD-{:03b} )", i),
+        i => panic!("Unsupported instruction ( LOAD-{:03b} )", i),
     }
 }
 
@@ -553,7 +553,7 @@ fn decode_op_imm(inst: i32) -> OpCode {
             let func7 = (inst >> 25) & 0b1111111;
             match func7 {
                 0b0000000 => SLLI,
-                i @ _ => panic!("Unsupported instruction (OP_IMM-{:03b}-{:07b})", func3, i),
+                i => panic!("Unsupported instruction (OP_IMM-{:03b}-{:07b})", func3, i),
             }
         }
         0b010 => SLTI,
@@ -563,12 +563,12 @@ fn decode_op_imm(inst: i32) -> OpCode {
             match func7 {
                 0b0000000 => SRLI,
                 0b0100000 => SRAI,
-                i @ _ => panic!("Unsupported instruction (OP_IMM-{:03b}-{:07b})", func3, i),
+                i => panic!("Unsupported instruction (OP_IMM-{:03b}-{:07b})", func3, i),
             }
         }
         0b110 => ORI,
         0b111 => ANDI,
-        i @ _ => panic!("Unsupported instruction ( OP_IMM-{:03b} )", i),
+        i => panic!("Unsupported instruction ( OP_IMM-{:03b} )", i),
     }
 }
 
@@ -577,7 +577,7 @@ fn decode_jalr(inst: i32) -> OpCode {
     let func3 = (inst >> 12) & 0b111;
     match func3 {
         0b000 => JALR,
-        i @ _ => panic!("Unsupported instruction ( JALR-{:03b} )", i),
+        i => panic!("Unsupported instruction ( JALR-{:03b} )", i),
     }
 }
 
@@ -591,6 +591,6 @@ fn decode_branch(inst: i32) -> OpCode {
         0b101 => BGE,
         0b110 => BLTU,
         0b111 => BGEU,
-        i @ _ => panic!("Unsupported instruction ( BRANCH-{:03b} )", i),
+        i => panic!("Unsupported instruction ( BRANCH-{:03b} )", i),
     }
 }

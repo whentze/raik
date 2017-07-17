@@ -45,7 +45,7 @@ impl Memory {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct Registers {
     pub pc: i32,
     x: [i32; 32],

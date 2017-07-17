@@ -13,7 +13,6 @@ use byteorder::{LittleEndian, ByteOrder};
 use raik::{Memory, Registers, ProgramState, instruction};
 
 pub fn main() {
-    print!("\n\n");
 
     let matches = clap_app!(rustv =>
         (version: crate_version!())
@@ -60,7 +59,7 @@ pub fn main() {
 
     let mut memory = Memory::new(0x20000); // ought to be enough for anybody
 
-    for ph in elf.program_headers.iter() {
+    for ph in &elf.program_headers {
         match ph.p_type {
             0 | 4 | 5 | 6 => {}
             1 => {
