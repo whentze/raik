@@ -8,6 +8,7 @@ extern crate clap;
 
 use std::fs::File;
 use std::io;
+use std::fmt::Display;
 use scroll::{Buffer, Pread};
 use byteorder::{LittleEndian, ByteOrder};
 use raik::{Memory, Registers, ProgramState, instruction};
@@ -25,34 +26,26 @@ pub fn main() {
     let debug = matches.is_present("debug");
 
     let fd = File::open(filename).unwrap_or_else(|e| {
-        println!("Error opening {}: {}", filename, e);
-        std::process::exit(1);
+        exit_err(format!("Error opening {}: {}", filename, e));
     });
     let buffer = Buffer::try_from(fd).unwrap_or_else(|e| {
-        println!("Buffer error: {}", e);
-        std::process::exit(1);
+        exit_err(format!("Buffer error: {}", e));
     });
     let obj = goblin::parse(&buffer).unwrap_or_else(|e| {
-        println!("Error parsing {}: {}", filename, e);
-        std::process::exit(1);
+        exit_err(format!("Error parsing {}: {}", filename, e));
     });
 
     let elf = match obj {
         goblin::Object::Elf(e) => e,
-        _ => {
-            println!("Error: {} does not appear to be an ELF file", filename);
-            std::process::exit(1);
-        }
+        _ => exit_err(format!("Error: {} does not appear to be an ELF file", filename))
     };
 
     if elf.header.e_machine != 0xf3 {
-        println!("Error: {} is not a Risc-V binary", filename);
-        std::process::exit(1);
+        exit_err(format!("Error: {} is not a Risc-V binary", filename));
     }
 
     if elf.is_64 {
-        println!("Error: {} is not a 32-bit binary", filename);
-        std::process::exit(1);
+        exit_err(format!("Error: {} is not a 32-bit binary", filename));
     }
 
     println!("Found valid RV32 ELF.");
@@ -67,19 +60,10 @@ pub fn main() {
                     .pread_slice::<[u8]>(ph.p_offset as usize, ph.p_filesz as usize)
                     .unwrap();
                 memory.copy_segment(segment, ph.p_vaddr as usize).unwrap();
-            }
-            2 => {
-                println!("Error: Dynamic Linking is not supported!");
-                std::process::exit(1);
-            }
-            3 => {
-                println!("Error: Program Interpreters are not supported!");
-                std::process::exit(1);
-            }
-            t => {
-                println!("Error: Unrecognized p_type: {}", t);
-                std::process::exit(1);
-            }
+            },
+            2 => exit_err("Dynamic Linking is not supported!"),
+            3 => exit_err("Error: Program Interpreters are not supported!"),
+            t => exit_err(format!("Error: Unrecognized p_type: {}", t)),
         };
     }
 
@@ -107,7 +91,12 @@ pub fn main() {
         inst.execute(&mut state);
         if state.regs.pc == return_address {
             println!("Program returned with value {}", state.regs.read_x(10));
-            std::process::exit(1);
+            std::process::exit(0);
         }
     }
+}
+
+fn exit_err<S : Display>(err : S) -> ! {
+    eprintln!("{}", err);
+    std::process::exit(1);
 }
